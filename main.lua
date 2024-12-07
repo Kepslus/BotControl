@@ -1,8 +1,22 @@
+local function hashKey(input)
+    local hash = 5381
 
+    for i = 1, #input do
+        local char = string.byte(input, i)
+        hash = bit32.band(((hash * 32 + hash) + char), 0xFFFFFFFF) -- hash * 33 + char, keep 32-bit
+    end
 
-local function validateKey(key)
-    local hwid = game:GetService("RbxAnalyticsService"):GetClientId()
-    
+    return string.format("%08x", hash)
+end
+
+local function validateKeyAndRunScript()
+    local hwid = game:GetService("RbxAnalyticsService"):GetClientId() -- Or your own HWID method
+    local key = getgenv().key
+    if not key then
+        print("Key not set in getgenv().key")
+        return
+    end
+
     -- Send validation request using syn.request
     local response = request({
         Url = "http://localhost:3000/checkKey",
@@ -16,29 +30,32 @@ local function validateKey(key)
             hwid = hwid
         })
     })
-    
+
     if response.StatusCode ~= 200 then
-        print("Failed to validate key...")
+        print("Failed to validate key:", response.Body)
         return false
     end
-    
+
     -- Parse the response
     local data = game:GetService("HttpService"):JSONDecode(response.Body)
-    
+
     -- Generate our own hash for comparison
     local combinedKey = key .. "__" .. hwid
     local localHash = hashKey(combinedKey)
-    
+
     -- Compare hashes
     if data.hash == localHash then
-        print("Key is valid!")
-        local Players = game:GetService("Players")
+        print("Key is valid! Running script...")
+        
+        -- Place your script logic here
+        local function runScript()
+            local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 local TextChatService = game:GetService("TextChatService")
 
-local ownerName = getgenv().ownerName
-local accountNames = getgenv().accountNames
+getgenv().ownerName = ""
+getgenv().accountNames = {}
 
 local orbitRadius = 12
 local lowOrbitRadius = 8  
@@ -50,7 +67,7 @@ local orbitSpeed = 1
 local moveAroundSpeed = 3 
 local moveAroundDistance = 8 
 
-local whitelist = {[ownerName] = true}  
+local whitelist = {[getgenv().ownerName] = true}  
 local blacklist = {}
 
 local function debugPrint(message)
@@ -82,7 +99,7 @@ end
 
 local function getActiveBots()
     local activeBots = {}
-    for _, name in ipairs(accountNames) do
+    for _, name in ipairs(getgenv().accountNames) do
         local player = Players:FindFirstChild(name)
         if player and player ~= ownerPlayer then
             table.insert(activeBots, player)
@@ -388,7 +405,7 @@ local function onAuthorizedPlayerChatted(player, message)
 end
 
 debugPrint("Script started for player: " .. currentPlayer.Name)
-ownerPlayer = Players:FindFirstChild(ownerName)
+ownerPlayer = Players:FindFirstChild(getgenv().ownerName)
 
 local function onPlayerAdded(player)
     player.Chatted:Connect(function(message)
@@ -417,7 +434,7 @@ else
 
     local ownerJoinedConnection
     ownerJoinedConnection = Players.PlayerAdded:Connect(function(player)
-        if player.Name == ownerName then
+        if player.Name == getgenv().ownerName then
             debugPrint("Owner joined the game")
             ownerPlayer = player
             debugPrint("Chat command listener set up")
@@ -456,7 +473,7 @@ else
 
     local ownerJoinedConnection
     ownerJoinedConnection = Players.PlayerAdded:Connect(function(player)
-        if player.Name == ownerName then
+        if player.Name == getgenv().ownerName then
             debugPrint("Owner joined the game")
             ownerPlayer = player
             debugPrint("command listener set up")
@@ -476,14 +493,17 @@ while true do
         wait(0.1)
     end
 end
-
-end
+        end
+        
+        runScript()
+        return true
     else
-        print("Key is invalid...")
+        print("Key is invalid!")
+        print("Server hash:", data.hash)
+        print("Local hash:", localHash)
         return false
     end
 end
 
 -- Example usage
-local key = getgenv().key
-validateKey(key)
+validateKeyAndRunScript()
