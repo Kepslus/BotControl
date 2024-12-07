@@ -32,7 +32,7 @@ local function validateKeyAndRunScript()
     })
 
     if response.StatusCode ~= 200 then
-        print("Failed to validate key:", response.Body)
+        print("Server error.")
         return false
     end
 
@@ -499,8 +499,6 @@ end
         return true
     else
         print("Key is invalid!")
-        print("Server hash:", data.hash)
-        print("Local hash:", localHash)
         return false
     end
 end
